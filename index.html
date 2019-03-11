@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=Edge">
+<style>
+    #grid {
+        width: 640px;
+        height: 480px;
+    }
+    .changed {
+        background-color: yellow;
+        color: red;
+    }
+</style>
+<link rel="stylesheet" href="node_modules/slickgrid/slick.grid.css">
+<link rel="stylesheet" href="node_modules/slickgrid/slick-default-theme.css">
+<script src="node_modules/slickgrid/lib/jquery-3.1.0.js"></script>
+<script src="node_modules/slickgrid/lib/jquery-ui-1.11.3.js"></script>
+<script src="node_modules/slickgrid/lib/jquery.event.drag-2.3.0.js"></script>
+<script src="node_modules/slickgrid/slick.core.js"></script>
+<script src="node_modules/slickgrid/slick.editors.js"></script>
+<script src="node_modules/slickgrid/slick.dataview.js"></script>
+<script src="node_modules/slickgrid/slick.grid.js"></script>
+<script>
+    var grid;
+    var dataView;
+
+    var columns = [
+        { id: "title", name: "Title", field: "title", editor: Slick.Editors.Text },
+        { id: "name", name: "Name", field: "name" }
+    ];
+    var options = {
+        'autoEdit': false,
+        'editable': true,
+        'enableColumnReorder' : false
+    };
+
+    function createData() {
+        return [
+            { id: 1, title: "ABC", name: "NAME-1" },
+            { id: 2, title: "XYZ", name: "NAME-2" },
+            { id: 3, title: "QQQ", name: "NAME-3" },
+            { id: 4, title: "HHH", name: "NAME-4" },
+            { id: 5, title: "ZZZ", name: "NAME-5" }
+        ];
+    }
+
+    function isCellValueChanged(item, field) {
+        return item[field] != item.backups[field];
+    }
+
+    function revert() {
+        var rows = [];
+        var data = dataView.getItems();
+
+        for(var i=0; i<data.length; i++) {
+            
+        }
+    }
+
+    function StatusFormatter(row, cell, value, columnDef, dataContext) {
+        switch(value) {
+            case 0: return "";
+            case 1: return "Added";
+            case 2: return "Changed";
+            case 3: return "Deleted";
+        }
+        return "?";
+    }
+
+    function ChangeDetectiveFormatter(row, cell, value, columnDef, dataContext) {
+        // { text, removeClasses, addClasses, toolTip }
+        var ret = { text: value, removeClasses: null, addClasses: null };
+        if(dataContext.backups[columnDef.field] != value) {
+            ret.addClasses = 'changed';
+        } else {
+            ret.removeClasses = 'changed';
+        }
+        return ret;
+    }
+
+    function Grid_onCellChange(e, args) {
+        console.debug('onCellChange');
+
+        updateStatus(args.item);
+
+        grid.invalidateRow(args.row);
+        grid.render();
+    }
+
+    function updateStatus(item) {
+        var columns = ['title', 'name'];
+        var updated = 0;
+
+        for(var i=0; i<columns.length; i++) {
+            if(item.backups[columns[i]] != item[columns[i]]) {
+                updated++;
+                break;
+            }
+        }
+
+        if(0 < updated) {
+            item.status = 2;
+        } else {
+            item.status = 0;
+        }
+    }
+
+    function setChangeDetaction() {
+        var columns = ['title', 'name'];
+
+        grid.onCellChange.subscribe(Grid_onCellChange);
+
+        var data = dataView.getItems();
+        data.forEach(function(item) {
+            item.status = 0;
+            item.backups = {}
+            for(var i=0; i<columns.length; i++) {
+                item.backups[columns[i]] = item[columns[i]];
+            }
+        });
+
+        dataView.setItems(data);
+
+        var status = { id: "status", name: "Status", field: "status", formatter: StatusFormatter };
+
+        var colDefs = grid.getColumns();
+
+        for(var i=0; i<columns.length; i++) {
+            colDefs[grid.getColumnIndex(columns[i])].formatter = ChangeDetectiveFormatter;
+        }
+        colDefs.unshift(status);
+        grid.setColumns(colDefs);
+
+        grid.invalidate();
+    }
+
+    function window_onload(evt) {
+        dataView = new Slick.Data.DataView();
+        grid = new Slick.Grid(document.getElementById('grid'), dataView, columns, options);
+
+        dataView.onRowCountChanged.subscribe(function(e, args) {
+            grid.updateRowCount();
+            grid.render();
+        });
+        dataView.onRowsChanged.subscribe(function(e, args) {
+            grid.invalidateRows(args.rows);
+            grid.render();
+        });
+
+        dataView.setItems(createData());
+
+        setChangeDetaction();
+    }
+
+    window.onload = window_onload;
+</script>
+</head>
+<body>
+    <h1>SlickGrid test</h1>
+<div id="grid"></div>
+</body>
+</html>
